@@ -6,11 +6,12 @@ A simple C++ / FLTK version of the client.
 
 Requires:
 
-FLTK
-FLTK-dependencies
+1. FLTK
+2. FLTK-dependencies
 
 See CMakeLists.txt.
 
+Recommended to use `git clone --depth 1` when cloning.
 
 ## Freenove 4WD Smart Car Kit for Raspberry Pi
 
