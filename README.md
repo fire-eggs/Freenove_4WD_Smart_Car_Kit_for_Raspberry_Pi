@@ -1,3 +1,22 @@
+Work based on the original samples.
+
+Some short term goals:
+1. A C++ / FLTK client to drive the motors of the car. [in process]
+2. Add the video feed to the client from 1. above.
+3. Improved error handling in the client and server code.
+4. Better quality video from the server.
+5. Replace the V1 camera module with the V2 module, document the results / effects.
+
+Some longer term goals:
+i. Improvements to the basic obstacle-avoidance server code.
+ii. A mapping, path-finding version of the obstacle-avoidance code.
+iii. A C++, multi-threaded version of the server.
+iv. Use libcamera on the server.
+
+Other ideas:
+A. Determine how to add additional servos to the board [as it supports more than 2], figure out possible applications.
+
+
 ## Freenove 4WD Smart Car Kit for Raspberry Pi
 
 > A 4WD smart car kit for Raspberry Pi.
