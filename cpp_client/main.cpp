@@ -15,6 +15,8 @@
 #include <FL/Fl_Tabs.H>
 #include <FL/Fl_Value_Slider.H>
 #include <FL/Fl_Toggle_Button.H>
+#include <FL/Fl_Input.H>
+#include <FL/fl_ask.H>
 
 #define CMD_PORT 5000
 #define IP_ADDR  "192.168.1.4"
@@ -23,12 +25,22 @@
 int clientfd;
 int sockfd;
 bool validConnect;
+char ipAddress[50] = {0};
 
-void onConnect(Fl_Widget *, void *)
+void onConnect(Fl_Widget *w, void *)
 {
     if (validConnect)
     {
-        // TODO need to disconnect
+        close(clientfd);
+        close(sockfd);
+        validConnect = false;
+        w->label("Connect");
+        return;
+    }
+
+    if (ipAddress[0] == 0)
+    {
+        fl_alert("No IP Address entered.");
         return;
     }
     
@@ -39,10 +51,10 @@ void onConnect(Fl_Widget *, void *)
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port   = htons(CMD_PORT);
 
-    int res = inet_pton(AF_INET, IP_ADDR, &serv_addr.sin_addr);
+    int res = inet_pton(AF_INET, ipAddress, &serv_addr.sin_addr);
     if (res < 1)
     {
-        puts("bad address");
+        fl_alert("Invalid IP Address.");
         validConnect = false;
         return;
     }
@@ -51,15 +63,40 @@ void onConnect(Fl_Widget *, void *)
     if (clientfd < 0)
     {
         close(sockfd);
-        puts("connect fail");
+        fl_alert("Connection fail.");
         validConnect = false;
         return;
     }
     validConnect = true;
+    w->label("Disconnect");
+}
+
+Fl_Window *ipDlg;
+
+void onIPClose(Fl_Widget *, void *)
+{
+    ipDlg->hide();
 }
 
 void onIPAddr(Fl_Widget *, void *)
 {
+    ipDlg = new Fl_Window(200, 200, 200, 100, "IP Address");
+    auto ipEdit = new Fl_Input(10, 30, 125, 30, "Enter server IP Address:");
+    ipEdit->align(FL_ALIGN_TOP_LEFT);
+    auto btnOK = new Fl_Button(10, 70, 100, 25, "Close");
+    btnOK->callback(onIPClose);
+
+    if (ipAddress[0])
+        ipEdit->value(ipAddress);
+    
+    ipDlg->end();
+    ipDlg->set_modal();
+    ipDlg->show();
+    while (ipDlg->shown())
+        Fl::wait();
+    strcpy(ipAddress, ipEdit->value());
+    delete ipDlg;
+    ipDlg = nullptr;
 }
 
 int speedL = 0;
@@ -312,11 +349,11 @@ void createButtonTab()
 {
     Fl_Group *group = new Fl_Group(10,65,230,295, "Button");
     
-    btns[8] = new Fl_Toggle_Button(130, 125, 30, 30, "8");
+    btns[8] = new Fl_Toggle_Button(130, 125, 30, 30, "@2<");
     btns[8]->callback(btnBtnClick, (void *)8);
-    btns[9] = new Fl_Toggle_Button( 90, 125, 30, 30, "9");
+    btns[9] = new Fl_Toggle_Button( 90, 125, 30, 30, "@3<");
     btns[9]->callback(btnBtnClick, (void *)9);
-    btns[7] = new Fl_Toggle_Button(170, 125, 30, 30, "7");
+    btns[7] = new Fl_Toggle_Button(170, 125, 30, 30, "@1<");
     btns[7]->callback(btnBtnClick, (void *)7);
     btns[5] = new Fl_Toggle_Button(130, 170, 30, 30, "@circle");
     btns[5]->callback(btnBtnClick, (void *)7);
@@ -324,11 +361,11 @@ void createButtonTab()
     btns[6]->callback(btnBtnClick, (void *)6);
     btns[4]  = new Fl_Toggle_Button(170, 170, 30, 30, "@>");
     btns[4]->callback(btnBtnClick, (void *)4);
-    btns[2]  = new Fl_Toggle_Button(130, 215, 30, 30, "2");
+    btns[2]  = new Fl_Toggle_Button(130, 215, 30, 30, "@2>");
     btns[2]->callback(btnBtnClick, (void *)2);
-    btns[3] = new Fl_Toggle_Button( 90, 215, 30, 30, "3");
+    btns[3] = new Fl_Toggle_Button( 90, 215, 30, 30, "@1>");
     btns[3]->callback(btnBtnClick, (void *)3);
-    btns[1] = new Fl_Toggle_Button(170, 215, 30, 30, "1");
+    btns[1] = new Fl_Toggle_Button(170, 215, 30, 30, "@3>");
     btns[1]->callback(btnBtnClick, (void *)1);
 
     Fl_Value_Slider *s1 = new Fl_Value_Slider(30, 103, 40, 152);
@@ -346,7 +383,7 @@ void createButtonTab()
 
 int main(int argc, char *argv[])
 {
-    auto mainwin = new Fl_Window(1000,400,250,400,"pimobile client");
+    auto mainwin = new Fl_Window(600,300,250,400,"pimobile client");
 
     auto btnConn = new Fl_Button(10, 10, 100, 25, "Connect");
     btnConn->callback(onConnect);
@@ -368,4 +405,3 @@ int main(int argc, char *argv[])
     mainwin->show(argc,argv);
     return Fl::run();
 }
-
