@@ -17,23 +17,41 @@
 #include <FL/Fl_Toggle_Button.H>
 #include <FL/Fl_Input.H>
 #include <FL/fl_ask.H>
+#include <FL/Fl_Preferences.H>
+
+#define HAVE_PTHREAD
+#define HAVE_PTHREAD_H
+#include "threads.h"
 
 #define CMD_PORT 5000
+#define VID_PORT 8000
 #define IP_ADDR  "192.168.1.4"
 #define MAXDATASIZE 1024
 
 int clientfd;
 int sockfd;
+int clientfdV;
+int sockfdV;
 bool validConnect;
+bool validVidConn;
 char ipAddress[50] = {0};
+
+Fl_Thread videoThread;
+extern void *vidThread(void*);
+
+Fl_Preferences *_prefs;
 
 void onConnect(Fl_Widget *w, void *)
 {
     if (validConnect)
     {
+        pthread_cancel(videoThread);
         close(clientfd);
         close(sockfd);
+        close(clientfdV);
+        close(sockfdV);
         validConnect = false;
+        validVidConn = false;
         w->label("Connect");
         return;
     }
@@ -56,6 +74,7 @@ void onConnect(Fl_Widget *w, void *)
     {
         fl_alert("Invalid IP Address.");
         validConnect = false;
+        validVidConn = false;
         return;
     }
     
@@ -65,10 +84,31 @@ void onConnect(Fl_Widget *w, void *)
         close(sockfd);
         fl_alert("Connection fail.");
         validConnect = false;
+        validVidConn = false;
         return;
     }
     validConnect = true;
     w->label("Disconnect");
+    
+    // Now connect for video
+    {
+        sockfdV = socket(AF_INET, SOCK_STREAM, 0);
+        serv_addr.sin_port   = htons(VID_PORT);
+        int res = inet_pton(AF_INET, ipAddress, &serv_addr.sin_addr);
+        clientfdV = connect(sockfdV, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+        if (clientfdV < 0)
+        {
+            close(sockfdV);
+            fl_alert("Video connect fail.");
+            validVidConn = false;
+        }
+        else
+            validVidConn = true;
+    }
+    
+    // fire video thread
+    if (validVidConn)
+        fl_create_thread(videoThread, vidThread, NULL);
 }
 
 Fl_Window *ipDlg;
@@ -80,6 +120,11 @@ void onIPClose(Fl_Widget *, void *)
 
 void onIPAddr(Fl_Widget *, void *)
 {
+    char *IPAddr;
+    _prefs->get("IPAddr", IPAddr, "192.168.1.4");
+    strcpy(ipAddress, IPAddr);
+    free(IPAddr);
+    
     ipDlg = new Fl_Window(200, 200, 200, 100, "IP Address");
     auto ipEdit = new Fl_Input(10, 30, 125, 30, "Enter server IP Address:");
     ipEdit->align(FL_ALIGN_TOP_LEFT);
@@ -97,6 +142,8 @@ void onIPAddr(Fl_Widget *, void *)
     strcpy(ipAddress, ipEdit->value());
     delete ipDlg;
     ipDlg = nullptr;
+    
+    _prefs->set("IPAddr", ipAddress);    
 }
 
 int speedL = 0;
@@ -349,22 +396,22 @@ void createButtonTab()
 {
     Fl_Group *group = new Fl_Group(10,65,230,295, "Button");
     
-    btns[8] = new Fl_Toggle_Button(130, 125, 30, 30, "@2<");
-    btns[8]->callback(btnBtnClick, (void *)8);
     btns[9] = new Fl_Toggle_Button( 90, 125, 30, 30, "@3<");
     btns[9]->callback(btnBtnClick, (void *)9);
+    btns[8] = new Fl_Toggle_Button(130, 125, 30, 30, "@2<");
+    btns[8]->callback(btnBtnClick, (void *)8);
     btns[7] = new Fl_Toggle_Button(170, 125, 30, 30, "@1<");
     btns[7]->callback(btnBtnClick, (void *)7);
-    btns[5] = new Fl_Toggle_Button(130, 170, 30, 30, "@circle");
-    btns[5]->callback(btnBtnClick, (void *)7);
     btns[6]  = new Fl_Toggle_Button( 90, 170, 30, 30, "@<");
     btns[6]->callback(btnBtnClick, (void *)6);
+    btns[5] = new Fl_Toggle_Button(130, 170, 30, 30, "@circle");
+    btns[5]->callback(btnBtnClick, (void *)7);
     btns[4]  = new Fl_Toggle_Button(170, 170, 30, 30, "@>");
     btns[4]->callback(btnBtnClick, (void *)4);
-    btns[2]  = new Fl_Toggle_Button(130, 215, 30, 30, "@2>");
-    btns[2]->callback(btnBtnClick, (void *)2);
     btns[3] = new Fl_Toggle_Button( 90, 215, 30, 30, "@1>");
     btns[3]->callback(btnBtnClick, (void *)3);
+    btns[2]  = new Fl_Toggle_Button(130, 215, 30, 30, "@2>");
+    btns[2]->callback(btnBtnClick, (void *)2);
     btns[1] = new Fl_Toggle_Button(170, 215, 30, 30, "@3>");
     btns[1]->callback(btnBtnClick, (void *)1);
 
@@ -383,6 +430,11 @@ void createButtonTab()
 
 int main(int argc, char *argv[])
 {
+    Fl::lock();
+    
+    _prefs = new Fl_Preferences(Fl_Preferences::USER, "FreeNoveClient", "fire-eggs");
+
+    // TODO size, position from preferences
     auto mainwin = new Fl_Window(600,300,250,400,"pimobile client");
 
     auto btnConn = new Fl_Button(10, 10, 100, 25, "Connect");

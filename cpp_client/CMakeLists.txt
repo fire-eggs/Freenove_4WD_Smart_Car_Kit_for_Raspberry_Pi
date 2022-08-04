@@ -1,15 +1,15 @@
 cmake_minimum_required(VERSION 3.0)
 
-project(test LANGUAGES C CXX)
+project(vidtest2)
 
-include_directories(${PROJECT_SOURCE_DIR} /home/kevin/fltk .)
+include_directories(${PROJECT_SOURCE_DIR} /home/pi/fltk/fltk-1.4.x-20220204-e73f9d46 .)
 
-find_library(FLTK fltk /home/kevin/fltk/lib)
+set(LINK_FLAGS "-pthread")
 
-add_executable(test main.cpp)
+add_executable(test main.cpp vidThread.cpp)
 
-target_link_libraries(test ${FLTK} m X11 Xext pthread Xinerama
-                      Xfixes Xcursor Xft Xrender m fontconfig dl)
+target_link_libraries(test fltk m X11 Xext pthread Xinerama
+                      Xfixes Xcursor Xft Xrender m fontconfig dl ${LINK_FLAGS})
 
 #install(TARGETS test RUNTIME DESTINATION bin)
 
