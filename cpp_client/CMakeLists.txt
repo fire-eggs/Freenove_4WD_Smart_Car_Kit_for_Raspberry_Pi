@@ -8,7 +8,7 @@ set(LINK_FLAGS "-pthread")
 
 add_executable(test main.cpp vidThread.cpp)
 
-target_link_libraries(test fltk m X11 Xext pthread Xinerama
+target_link_libraries(test fltk fltk_images jpeg m X11 Xext pthread Xinerama
                       Xfixes Xcursor Xft Xrender m fontconfig dl ${LINK_FLAGS})
 
 #install(TARGETS test RUNTIME DESTINATION bin)

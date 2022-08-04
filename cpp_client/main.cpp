@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <mutex>
 
 #include <unistd.h>
 #include <errno.h>
@@ -18,6 +19,9 @@
 #include <FL/Fl_Input.H>
 #include <FL/fl_ask.H>
 #include <FL/Fl_Preferences.H>
+#include <FL/Fl_JPEG_Image.H>
+#include <FL/Fl_Double_Window.H>
+#include <FL/Fl_Box.H>
 
 #define HAVE_PTHREAD
 #define HAVE_PTHREAD_H
@@ -40,6 +44,12 @@ Fl_Thread videoThread;
 extern void *vidThread(void*);
 
 Fl_Preferences *_prefs;
+
+#define NEW_FRAME 1001 // TODO header
+extern unsigned char *imgBuffer; // bytes of jpeg image received from server
+std::mutex imageMutex;
+Fl_Box *_viewbox;
+Fl_Double_Window *_viewwin;
 
 void onConnect(Fl_Widget *w, void *)
 {
@@ -118,12 +128,17 @@ void onIPClose(Fl_Widget *, void *)
     ipDlg->hide();
 }
 
-void onIPAddr(Fl_Widget *, void *)
+void getIpAddress()
 {
     char *IPAddr;
     _prefs->get("IPAddr", IPAddr, "192.168.1.4");
     strcpy(ipAddress, IPAddr);
     free(IPAddr);
+}
+
+void onIPAddr(Fl_Widget *, void *)
+{
+    getIpAddress(); // from prefs
     
     ipDlg = new Fl_Window(200, 200, 200, 100, "IP Address");
     auto ipEdit = new Fl_Input(10, 30, 125, 30, "Enter server IP Address:");
@@ -428,11 +443,39 @@ void createButtonTab()
     group->end();
 }
 
+// callback function for handling thread messages
+void cbMessage(void *msgV)
+{
+    long msg = (long)msgV;
+    if (msg == NEW_FRAME)
+    {
+        // lock frame buffer
+        // load to Fl_Image
+        // show in view canvas
+        // release the previous image
+        {
+            std::lock_guard<std::mutex> guard(imageMutex);
+            Fl_Image *img = new Fl_JPEG_Image("a", (const unsigned char *)imgBuffer);
+            if (img->fail())
+                printf("image load failure\n");
+            _viewbox->image(img);
+            _viewwin->redraw();
+            Fl::awake();
+        }
+    }
+}
+
+void sendFLTKMsg(long msg)
+{
+    Fl::awake(cbMessage, (void *)msg);
+}
+
 int main(int argc, char *argv[])
 {
     Fl::lock();
     
     _prefs = new Fl_Preferences(Fl_Preferences::USER, "FreeNoveClient", "fire-eggs");
+    getIpAddress(); // from prefs
 
     // TODO size, position from preferences
     auto mainwin = new Fl_Window(600,300,250,400,"pimobile client");
@@ -454,6 +497,15 @@ int main(int argc, char *argv[])
     mainwin->resizable(tabs);
     
     mainwin->end();
+    
+    _viewwin = new Fl_Double_Window(700, 350, 800, 600, "pimobile view");
+    _viewbox = new Fl_Box(0,0,800, 600);
+    _viewwin->end();
+    
     mainwin->show(argc,argv);
+    _viewwin->show();
+    
+    Fl::awake(cbMessage, nullptr);
+    
     return Fl::run();
 }

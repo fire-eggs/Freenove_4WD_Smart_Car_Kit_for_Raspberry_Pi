@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <mutex>
 
 #include <unistd.h>
 #include <errno.h>
@@ -10,8 +11,15 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#include <FL/Fl.H> // Fl::awake
+
 extern bool validVidConn;
 extern int sockfdV;
+
+#define NEW_FRAME 1001 // TODO header
+extern std::mutex imageMutex;
+unsigned char *imgBuffer;
+extern void sendFLTKMsg(long);
 
 size_t readLength()
 {
@@ -68,7 +76,8 @@ void *vidThread(void *p)
             if (toRead < 4096)
                 readSize = toRead;
         }
-        
+
+/*        
         // buffer now contains the image
         char fn[12];
         sprintf(fn, "vid%03d.jpg", filenum);
@@ -76,6 +85,15 @@ void *vidThread(void *p)
         fwrite(buffer, 1, totRead, f);
         fclose(f);
         filenum++;
+*/        
+        // TODO locking around common pointer
+        {
+        std::lock_guard<std::mutex> guard(imageMutex);
+        // TODO assign buffer to common pointer
+        imgBuffer = buffer;
+        }
+        
+        sendFLTKMsg(NEW_FRAME);
     }
     
     return nullptr;
