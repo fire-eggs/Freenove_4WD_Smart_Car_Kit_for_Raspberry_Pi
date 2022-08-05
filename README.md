@@ -3,7 +3,11 @@ A simple C++ / FLTK version of the client.
 1. Allows setting the ip address.
 2. Connect, disconnect.
 3. Three experimental GUIs for driving the car motors.
-4. Receives image frames from the car camera and [in progress] displays them.
+4. Receives image frames from the car camera and displays them.
+
+status: functional. Probable memory leak. Turns are problematic.
+
+
 
 Requires:
 
