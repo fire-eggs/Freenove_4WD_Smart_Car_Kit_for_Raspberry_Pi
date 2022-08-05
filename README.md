@@ -7,7 +7,7 @@ A simple C++ / FLTK version of the client.
 
 status: functional. Probable memory leak. Turns are problematic.
 
-
+![snapshot](./Picture/pimobile.png)
 
 Requires:
 
