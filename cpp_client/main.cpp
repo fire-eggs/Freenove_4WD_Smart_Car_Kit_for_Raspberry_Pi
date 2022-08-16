@@ -22,6 +22,8 @@
 #include <FL/Fl_JPEG_Image.H>
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Box.H>
+#include <FL/Fl_Check_Button.H>
+#include <FL/Fl_Roller.H>
 
 #define HAVE_PTHREAD
 #define HAVE_PTHREAD_H
@@ -209,6 +211,7 @@ void sendMotorDelta(int dLeft, int dRight)
     sendMotorAbsolute(newL, newR);
 }
 
+#if 0 // Old simple tab
 void onStop(Fl_Widget *, void *)
 {
     //const char *cmd = u8"CMD_MOTOR#0#0#0#0\n\n";
@@ -256,7 +259,9 @@ void createBasicTab()
 
     group->end();
 }
+#endif
 
+#if 0 // Old skid steer tab
 void leftChange(Fl_Widget *, void *)
 {
     int value = slideLeft->value();
@@ -321,6 +326,7 @@ void createSliderTab()
     
     group->end();
 }
+#endif
 
 int _activeBtn = 0;
 int _activeSpeed = 0;
@@ -384,6 +390,9 @@ void btnBtnClick(Fl_Widget *w, void *d)
 {
     int which = (int)(long)(d);
     
+    printf("type: %d\n", btns[which]->type());
+    printf("when: %d\n", btns[which]->when());
+    
     // toggling a down button up
     if (btns[which]->value() == 0)
     {
@@ -407,9 +416,25 @@ void speedBtnChange(Fl_Widget *w, void *)
     BtnUpdate();
 }
 
+void cbOnPress(Fl_Widget *w, void *)
+{
+    Fl_Check_Button *btn = static_cast<Fl_Check_Button*>(w);
+    
+    // If ON, need to:
+    // a. set each direction button's type() value to FL_NORMAL_BUTTON
+    // b. set each direction button's when() value to FL_WHEN_CHANGED
+    
+    // If OFF, need to:
+    // a. set each direction button's type() value to FL_TOGGLE_BUTTON
+    // b. set each direction button's when() value to FL_WHEN_RELEASE
+    
+}
+
 void createButtonTab()
 {
-    Fl_Group *group = new Fl_Group(10,65,230,295, "Button");
+    Fl_Group *group = new Fl_Group(10,65,210,295, "Motor");
+    group->box(FL_BORDER_BOX);
+    group->color(181);
     
     btns[9] = new Fl_Toggle_Button( 90, 125, 30, 30, "@3<");
     btns[9]->callback(btnBtnClick, (void *)9);
@@ -440,7 +465,67 @@ void createButtonTab()
     s1->step(500);
     s1->callback(speedBtnChange);
     
+    Fl_Check_Button *pressToggle = new Fl_Check_Button(30,300,150,25,"On Press");
+    pressToggle->callback(cbOnPress);
+    
     group->end();
+}
+
+void sendServo(char which, int val)
+{
+    if (!validConnect)
+        return; // no connection, nothing to do
+            
+    char buff[1024];
+    sprintf(buff, "CMD_SERVO#%c#%d\n", which, val);
+    
+    int outlen = strlen(buff);
+    send(sockfd, buff, outlen, 0);   
+}
+
+void cbServoSlider(Fl_Widget *w, void *)
+{
+    Fl_Slider *slid = static_cast<Fl_Slider*>(w);
+    
+    int val = slid->value();
+    if (slid->type() == FL_VERT_NICE_SLIDER)
+    {
+        // TODO move vertical servo
+        printf("Vert servo: %d\n", val);
+        sendServo('1',val);
+    }
+    else
+    {
+        // TODO move horizontal servo
+        printf("Horz servo: %d\n", val);
+        sendServo('0',val);
+    }
+}
+
+void createServoTab()
+{
+    Fl_Group *group = new Fl_Group(230,65,230,295, "Servo");
+    group->box(FL_BORDER_BOX);
+    group->color(221);
+    
+    Fl_Value_Slider *vert = new Fl_Value_Slider(245, 120, 30, 150);
+    vert->type(FL_VERT_NICE_SLIDER);
+    vert->step(15);
+    // TODO what is range of motion for the vertical servo?
+    vert->bounds(120,60);
+    vert->value(90);
+    vert->callback(cbServoSlider);
+    
+    Fl_Value_Slider *horz = new Fl_Value_Slider(245, 85, 200, 30);
+    horz->type(FL_HOR_NICE_SLIDER);
+    horz->value(90);
+    horz->bounds(0,180);
+    horz->step(15);
+    horz->callback(cbServoSlider);
+            
+    group->end();
+    
+    // TODO free-motion sliders
 }
 
 // callback function for handling thread messages
@@ -485,7 +570,7 @@ int main(int argc, char *argv[])
     getIpAddress(); // from prefs
 
     // TODO size, position from preferences
-    auto mainwin = new Fl_Window(600,300,250,400,"pimobile client");
+    auto mainwin = new Fl_Window(600,300,500,400,"pimobile client");
 
     auto btnConn = new Fl_Button(10, 10, 100, 25, "Connect");
     btnConn->callback(onConnect);
@@ -493,24 +578,29 @@ int main(int argc, char *argv[])
     auto btnIP = new Fl_Button(120, 10, 100, 25, "IP Address");
     btnIP->callback(onIPAddr);
        
-    
+#if 0    
     Fl_Tabs *tabs = new Fl_Tabs(10, 45, 230, 345);
     tabs->when(FL_WHEN_CHANGED);
 
     createBasicTab();
     createSliderTab();
+#endif    
     createButtonTab();
+    createServoTab();
 
+#if 0    
     mainwin->resizable(tabs);
-    
+#endif
+    mainwin->resizable(mainwin);
     mainwin->end();
-    
+
+#if true    // temporary
     _viewwin = new Fl_Double_Window(700, 350, 800, 600, "pimobile view");
     _viewbox = new Fl_Box(0,0,800, 600);
     _viewwin->end();
-    
-    mainwin->show(argc,argv);
     _viewwin->show();
+#endif    
+    mainwin->show(argc,argv);
     
     Fl::awake(cbMessage, nullptr);
     
