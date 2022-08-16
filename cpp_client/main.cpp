@@ -449,19 +449,26 @@ void cbMessage(void *msgV)
     long msg = (long)msgV;
     if (msg == NEW_FRAME)
     {
-        // lock frame buffer
-        // load to Fl_Image
-        // show in view canvas
         // release the previous image
+        Fl_Image *img = _viewbox->image();
+        delete img;
+        
+        // lock frame buffer & load to Fl_Image
         {
             std::lock_guard<std::mutex> guard(imageMutex);
-            Fl_Image *img = new Fl_JPEG_Image("a", (const unsigned char *)imgBuffer);
-            if (img->fail())
-                printf("image load failure\n");
-            _viewbox->image(img);
-            _viewwin->redraw();
-            Fl::awake();
+            img = new Fl_JPEG_Image("a", (const unsigned char *)imgBuffer);
         }
+
+        // show new image in view canvas
+        if (img->fail())
+            printf("image load failure\n");
+        else
+        {
+            _viewbox->image(img);
+            _viewwin->redraw();  // TODO necessary?
+            Fl::awake();   // TODO necessary?
+        }
+        
     }
 }
 
