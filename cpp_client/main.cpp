@@ -576,6 +576,14 @@ void sendFLTKMsg(long msg)
     Fl::awake(cbMessage, (void *)msg);
 }
 
+void cbClose(Fl_Widget *w, void *d)
+{
+    // User has closed the main win; hide it AND the view window to exit
+    Fl_Window *win = dynamic_cast<Fl_Window *>(w);
+    _viewwin->hide();
+    win->hide();
+}
+
 int main(int argc, char *argv[])
 {
     Fl::lock();
@@ -607,6 +615,7 @@ int main(int argc, char *argv[])
 #endif
     mainwin->resizable(mainwin);
     mainwin->end();
+    mainwin->callback(cbClose);
 
 #if true    // temporary
     _viewwin = new Fl_Double_Window(700, 350, 800, 600, "pimobile view");
