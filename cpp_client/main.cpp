@@ -139,6 +139,37 @@ void getIpAddress()
     free(IPAddr);
 }
 
+void saveIpAddress()
+{
+    _prefs->set("IPAddr", ipAddress);
+}
+
+#include <string.h>
+
+void getWinPos(const char *which, int& x, int& y, int defx, int defy)
+{
+    char buff[25];
+    strcpy(buff, which);
+    strcat(buff, "_X");
+    _prefs->get(buff, x, defx);
+    strcpy(buff, which);
+    strcat(buff, "_Y");
+    _prefs->get(buff, y, defy);
+}
+
+void saveWinPos(const char *which, int x, int y)
+{
+    char buff[25];
+    strcpy(buff, which);
+    strcat(buff, "_X");
+    _prefs->set(buff, x);
+    strcpy(buff, which);
+    strcat(buff, "_Y");
+    _prefs->set(buff, y);
+    _prefs->flush();
+}
+
+
 void onIPAddr(Fl_Widget *, void *)
 {
     getIpAddress(); // from prefs
@@ -161,8 +192,8 @@ void onIPAddr(Fl_Widget *, void *)
     delete ipDlg;
     ipDlg = nullptr;
     
-    _prefs->set("IPAddr", ipAddress); 
-    ipAddrView->copy_label(ipAddress);
+    saveIpAddress();
+    ipAddrView->copy_label(ipAddress);    
 }
 
 int speedL = 0;
@@ -539,7 +570,7 @@ void createServoTab()
             
     group->end();
     
-    // TODO free-motion sliders
+    // TODO free-motion sliders?
 }
 
 // callback function for handling thread messages
@@ -580,6 +611,10 @@ void cbClose(Fl_Widget *w, void *d)
 {
     // User has closed the main win; hide it AND the view window to exit
     Fl_Window *win = dynamic_cast<Fl_Window *>(w);
+    
+    saveWinPos("MAIN", win->x(), win->y());
+    saveWinPos("VIEW", _viewwin->x(), _viewwin->y());
+    
     _viewwin->hide();
     win->hide();
 }
@@ -588,11 +623,13 @@ int main(int argc, char *argv[])
 {
     Fl::lock();
     
-    _prefs = new Fl_Preferences(Fl_Preferences::USER, "FreeNoveClient", "fire-eggs");
+    _prefs = new Fl_Preferences(Fl_Preferences::USER, "fire-eggs", "FreeNoveClient");
     getIpAddress(); // from prefs
+    int winx,winy;
+    getWinPos("MAIN", winx, winy, 600, 300);
 
     // TODO size, position from preferences
-    auto mainwin = new Fl_Window(600,300,500,400,"pimobile client");
+    auto mainwin = new Fl_Window(winx,winy,470,400,"pimobile client");
 
     auto btnConn = new Fl_Button(10, 10, 100, 25, "Connect");
     btnConn->callback(onConnect);
@@ -600,10 +637,14 @@ int main(int argc, char *argv[])
     auto btnIP = new Fl_Button(120, 10, 100, 25, "IP Address");
     btnIP->callback(onIPAddr);
     
-    auto ipBox = new Fl_Box(230, 10, 150, 25);
+    auto ipBox = new Fl_Box(230, 10, 125, 25);
+    ipBox->box(FL_BORDER_BOX);
     ipBox->copy_label(ipAddress);
     ipBox->align(FL_ALIGN_CENTER|FL_ALIGN_INSIDE);
     ipAddrView = ipBox;
+    
+    auto popLEDs = new Fl_Toggle_Button(400, 10, 50, 25, "LEDs");
+    popLEDs->deactivate();
        
 #if 0    
     Fl_Tabs *tabs = new Fl_Tabs(10, 45, 230, 345);
@@ -623,7 +664,8 @@ int main(int argc, char *argv[])
     mainwin->callback(cbClose);
 
 #if true    // temporary
-    _viewwin = new Fl_Double_Window(700, 350, 800, 600, "pimobile view");
+    getWinPos("VIEW", winx, winy, 700, 350);
+    _viewwin = new Fl_Double_Window(winx, winy, 800, 600, "pimobile view");
     _viewbox = new Fl_Box(0,0,800, 600);
     _viewwin->end();
     _viewwin->show();
