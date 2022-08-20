@@ -524,9 +524,9 @@ void createServoTab()
     
     Fl_Value_Slider *vert = new Fl_Value_Slider(245, 120, 30, 150);
     vert->type(FL_VERT_NICE_SLIDER);
-    vert->step(15);
-    // TODO what is range of motion for the vertical servo?
-    vert->bounds(120,60);
+    vert->step(10);
+    // According to the 'original' client, the range is 180-80.
+    vert->bounds(180,80);
     vert->value(90);
     vert->callback(cbServoSlider);
     
