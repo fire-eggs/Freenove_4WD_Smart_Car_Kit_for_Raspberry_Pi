@@ -419,6 +419,7 @@ void speedBtnChange(Fl_Widget *w, void *)
 void cbOnPress(Fl_Widget *w, void *)
 {
     Fl_Check_Button *btn = static_cast<Fl_Check_Button*>(w);
+    bool asPress = btn->value() == 1;
     
     // If ON, need to:
     // a. set each direction button's type() value to FL_NORMAL_BUTTON
@@ -428,6 +429,19 @@ void cbOnPress(Fl_Widget *w, void *)
     // a. set each direction button's type() value to FL_TOGGLE_BUTTON
     // b. set each direction button's when() value to FL_WHEN_RELEASE
     
+    for (int i=1; i <= 9; i++)
+    {
+        if (asPress)
+        {
+            btns[i]->type(FL_NORMAL_BUTTON);
+            btns[i]->when(FL_WHEN_CHANGED);
+        }
+        else
+        {
+            btns[i]->type(FL_TOGGLE_BUTTON);
+            btns[i]->when(FL_WHEN_RELEASE);
+        }
+    }
 }
 
 void createButtonTab()
