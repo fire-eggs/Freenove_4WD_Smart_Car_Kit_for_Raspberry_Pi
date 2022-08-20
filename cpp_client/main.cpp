@@ -41,6 +41,7 @@ int sockfdV;
 bool validConnect;
 bool validVidConn;
 char ipAddress[50] = {0};
+Fl_Widget *ipAddrView;
 
 Fl_Thread videoThread;
 extern void *vidThread(void*);
@@ -160,7 +161,8 @@ void onIPAddr(Fl_Widget *, void *)
     delete ipDlg;
     ipDlg = nullptr;
     
-    _prefs->set("IPAddr", ipAddress);    
+    _prefs->set("IPAddr", ipAddress); 
+    ipAddrView->copy_label(ipAddress);
 }
 
 int speedL = 0;
@@ -384,15 +386,13 @@ void BtnUpdate()
     sendMotorAbsolute(_activeSpeed * mL, _activeSpeed * mR);
 }
 
+// Active buttons are 1-9
 Fl_Toggle_Button *btns[15];
 
 void btnBtnClick(Fl_Widget *w, void *d)
 {
     int which = (int)(long)(d);
-    
-    printf("type: %d\n", btns[which]->type());
-    printf("when: %d\n", btns[which]->when());
-    
+        
     // toggling a down button up
     if (btns[which]->value() == 0)
     {
@@ -599,6 +599,11 @@ int main(int argc, char *argv[])
 
     auto btnIP = new Fl_Button(120, 10, 100, 25, "IP Address");
     btnIP->callback(onIPAddr);
+    
+    auto ipBox = new Fl_Box(230, 10, 150, 25);
+    ipBox->copy_label(ipAddress);
+    ipBox->align(FL_ALIGN_CENTER|FL_ALIGN_INSIDE);
+    ipAddrView = ipBox;
        
 #if 0    
     Fl_Tabs *tabs = new Fl_Tabs(10, 45, 230, 345);
