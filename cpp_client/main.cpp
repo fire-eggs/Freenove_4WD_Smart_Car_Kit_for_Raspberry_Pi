@@ -24,6 +24,7 @@
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Check_Button.H>
 #include <FL/Fl_Roller.H>
+#include <FL/Fl_Hor_Fill_Slider.H>
 
 #define HAVE_PTHREAD
 #define HAVE_PTHREAD_H
@@ -43,16 +44,28 @@ bool validVidConn;
 char ipAddress[50] = {0};
 Fl_Widget *ipAddrView;
 
-Fl_Thread videoThread;
+Fl_Thread videoThread; // TODO move to vidThread.cpp
 extern void *vidThread(void*);
+
+Fl_Thread receiveThread; // TODO move to recvThread.cpp
+extern void *recvThread(void*);
+
+Fl_Thread batteryThread; // TODO move to powerThread.cpp
+extern void *powerThread(void *);
 
 Fl_Preferences *_prefs;
 
 #define NEW_FRAME 1001 // TODO header
+#define UPD_POWER 1002 // TODO header
+#define UPD_DIST  1003 // TODO header
+
 extern unsigned char *imgBuffer; // bytes of jpeg image received from server
 std::mutex imageMutex;
 Fl_Box *_viewbox;
 Fl_Double_Window *_viewwin;
+
+std::mutex distMutex;
+Fl_Box *distOut; // where to show the sonic distance results
 
 void onConnect(Fl_Widget *w, void *)
 {
@@ -102,6 +115,9 @@ void onConnect(Fl_Widget *w, void *)
     }
     validConnect = true;
     w->label("Disconnect");
+    
+    fl_create_thread(receiveThread, recvThread, nullptr);
+    fl_create_thread(batteryThread, powerThread, nullptr);
     
     // Now connect for video
     {
@@ -400,6 +416,17 @@ void cbServoSlider(Fl_Widget *w, void *)
     }
 }
 
+void cbDistance(Fl_Widget *w, void*)
+{
+    if (!validConnect)
+        return;
+    Fl_Button *btn = dynamic_cast<Fl_Button *>(w);
+    if (btn->value() == 0)
+        send(sockfd, "CMD_SONIC#0\n", 12, 0);
+    else
+        send(sockfd, "CMD_SONIC#1\n", 12, 0);
+}
+
 void createServoTab()
 {
     Fl_Group *group = new Fl_Group(230,65,230,295, "Servo");
@@ -420,11 +447,23 @@ void createServoTab()
     horz->bounds(0,180);
     horz->step(15);
     horz->callback(cbServoSlider);
-            
+           
+    Fl_Light_Button *dist = new Fl_Light_Button(300, 150, 100, 25, "Distance");
+    dist->callback(cbDistance);
+    
+    distOut = new Fl_Box(300, 180, 100, 25);
+    distOut->box(FL_BORDER_BOX);
+    distOut->align(FL_ALIGN_CENTER | FL_ALIGN_INSIDE);
+    
+    
     group->end();
     
     // TODO free-motion sliders?
 }
+
+Fl_Hor_Fill_Slider *powerLevel;
+extern int percent;
+extern char distStr[10];
 
 // callback function for handling thread messages
 void cbMessage(void *msgV)
@@ -444,7 +483,7 @@ void cbMessage(void *msgV)
 
         // show new image in view canvas
         if (img->fail())
-            printf("image load failure\n");
+            printf("Maincb image load failure\n");
         else
         {
             _viewbox->image(img);
@@ -452,6 +491,26 @@ void cbMessage(void *msgV)
             Fl::awake();   // TODO necessary?
         }
         
+    }
+    if (msg == UPD_POWER)
+    {
+        powerLevel->value(percent);
+        if (percent < 20)
+            powerLevel->selection_color(FL_RED);
+        else if (percent < 40)
+            powerLevel->selection_color(93); // orange
+        else if (percent < 60)
+            powerLevel->selection_color(FL_YELLOW);
+        else
+            powerLevel->selection_color(FL_GREEN);
+            
+    }
+    if (msg == UPD_DIST)
+    {
+        {
+        std::lock_guard<std::mutex> guard(distMutex);
+        distOut->copy_label(distStr);
+        }
     }
 }
 
@@ -502,6 +561,9 @@ int main(int argc, char *argv[])
     createButtonTab();
     createServoTab();
 
+    powerLevel = new Fl_Hor_Fill_Slider(10,370,100,25);
+    powerLevel->range(0,100);
+    
     mainwin->resizable(mainwin);
     mainwin->end();
     mainwin->callback(cbClose);
