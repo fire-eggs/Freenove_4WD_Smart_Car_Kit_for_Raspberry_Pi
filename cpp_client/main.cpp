@@ -169,7 +169,6 @@ void saveWinPos(const char *which, int x, int y)
     _prefs->flush();
 }
 
-
 void onIPAddr(Fl_Widget *, void *)
 {
     getIpAddress(); // from prefs
@@ -199,27 +198,6 @@ void onIPAddr(Fl_Widget *, void *)
 int speedL = 0;
 int speedR = 0;
 
-#define STOP 0
-#define INCR 250
-#define MMAX 3500
-
-char cvtbuffer[1024];
-
-Fl_Value_Slider *slideLeft;
-Fl_Value_Slider *slideRight;
-Fl_Toggle_Button *slideLock;
-
-const char *cvtToUTF8(char *instr)
-{
-    int len = strlen(instr);
-    for (int i = 0, j=0; i <= len; i++) // NOTE the equal: copy the termination zero!
-    {
-        cvtbuffer[j++] = instr[i];
-        cvtbuffer[j++] = 0;
-    }
-    return cvtbuffer;
-}
-
 void sendMotorAbsolute(int spL, int spR)
 {    
     if (!validConnect)
@@ -236,130 +214,6 @@ void sendMotorAbsolute(int spL, int spR)
     int outlen = strlen(buff);
     send(sockfd, buff, outlen, 0);   
 }
-
-void sendMotorDelta(int dLeft, int dRight)
-{
-    int newL = speedL + dLeft * INCR;
-    int newR = speedR + dRight * INCR;
-    sendMotorAbsolute(newL, newR);
-}
-
-#if 0 // Old simple tab
-void onStop(Fl_Widget *, void *)
-{
-    //const char *cmd = u8"CMD_MOTOR#0#0#0#0\n\n";
-    //send(sockfd, cmd, strlen(cmd)+1, 0);
-    sendMotorAbsolute(STOP, STOP);
-}
-
-void onLU(Fl_Widget *, void *)
-{
-    sendMotorDelta(+1,0);
-}
-
-void onLD(Fl_Widget *, void *)
-{
-    sendMotorDelta(-1,0);
-}
-
-void onRU(Fl_Widget *, void *)
-{
-    sendMotorDelta(0,+1);
-}
-
-void onRD(Fl_Widget *, void *)
-{
-    sendMotorDelta(0,-1);
-}
-
-void createBasicTab()
-{
-    Fl_Group *group = new Fl_Group(10,65,230,295, "Simple");
-
-    int Y = 50;
-
-    auto btnLU = new Fl_Button( 30, Y+50, 25, 25, "+");
-    btnLU->callback(onLU);
-    auto btnLD = new Fl_Button( 30, Y+125, 25, 25, "-");
-    btnLD->callback(onLD);
-    auto btnRU = new Fl_Button( 90, Y+50, 25, 25, "+");
-    btnRU->callback(onRU);
-    auto btnRD = new Fl_Button( 90, Y+125, 25, 25, "-");
-    btnRD->callback(onRD);
-
-    auto btnStop = new Fl_Button( 50, Y+85, 50, 25, "Stop");
-    btnStop->callback(onStop);
-
-    group->end();
-}
-#endif
-
-#if 0 // Old skid steer tab
-void leftChange(Fl_Widget *, void *)
-{
-    int value = slideLeft->value();
-    int spR = speedR;
-    if (slideLock->value() != 0)
-    {
-        spR = value;
-        slideRight->value(value);
-    }
-    sendMotorAbsolute(value, spR);
-}
-
-void rightChange(Fl_Widget *, void *)
-{
-    int value = slideRight->value();
-    int spL = speedL;
-    if (slideLock->value() != 0)
-    {
-        spL = value;
-        slideLeft->value(value);
-    }
-    sendMotorAbsolute(spL, value);
-}
-
-void onSliderStop(Fl_Widget *, void *)
-{
-    sendMotorAbsolute(STOP,STOP);
-    slideLeft->value(0);
-    slideRight->value(0);
-}
-
-void createSliderTab()
-{
-    Fl_Group *group = new Fl_Group(10,65,230,295, "Slider");
-    
-    Fl_Value_Slider *s1 = new Fl_Value_Slider(25, 75, 40, 250);
-    s1->type(FL_VERT_NICE_SLIDER);
-    s1->box(FL_BORDER_BOX);
-    s1->value(0);
-    s1->labelsize(14);
-    s1->align(FL_ALIGN_TOP);
-    s1->bounds(3500, -3500);
-    s1->step(500);
-    s1->callback(leftChange);
-    slideLeft = s1;
-    
-    Fl_Value_Slider *s2 = new Fl_Value_Slider(175, 75, 40, 250);
-    s2->type(FL_VERT_NICE_SLIDER);
-    s2->box(FL_BORDER_BOX);
-    s2->value(0);
-    s2->labelsize(14);
-    s2->align(FL_ALIGN_TOP);
-    s2->bounds(3500, -3500);
-    s2->step(500);
-    s2->callback(rightChange);
-    slideRight = s2;
-    
-    Fl_Button *btnStop = new Fl_Button(90, 200, 50, 25, "Stop");
-    btnStop->callback(onSliderStop);
-    
-    slideLock = new Fl_Toggle_Button(90, 310, 50, 25, "Lock");
-    
-    group->end();
-}
-#endif
 
 int _activeBtn = 0;
 int _activeSpeed = 0;
@@ -449,6 +303,9 @@ void speedBtnChange(Fl_Widget *w, void *)
 
 void cbOnPress(Fl_Widget *w, void *)
 {
+    // Toggles the motor buttons from toggle mode [stays pressed]
+    // to hold mode [stays pressed while held].
+    
     Fl_Check_Button *btn = static_cast<Fl_Check_Button*>(w);
     bool asPress = btn->value() == 1;
     
@@ -535,14 +392,10 @@ void cbServoSlider(Fl_Widget *w, void *)
     int val = slid->value();
     if (slid->type() == FL_VERT_NICE_SLIDER)
     {
-        // TODO move vertical servo
-        printf("Vert servo: %d\n", val);
         sendServo('1',val);
     }
     else
     {
-        // TODO move horizontal servo
-        printf("Horz servo: %d\n", val);
         sendServo('0',val);
     }
 }
@@ -646,19 +499,9 @@ int main(int argc, char *argv[])
     auto popLEDs = new Fl_Toggle_Button(400, 10, 50, 25, "LEDs");
     popLEDs->deactivate();
        
-#if 0    
-    Fl_Tabs *tabs = new Fl_Tabs(10, 45, 230, 345);
-    tabs->when(FL_WHEN_CHANGED);
-
-    createBasicTab();
-    createSliderTab();
-#endif    
     createButtonTab();
     createServoTab();
 
-#if 0    
-    mainwin->resizable(tabs);
-#endif
     mainwin->resizable(mainwin);
     mainwin->end();
     mainwin->callback(cbClose);
